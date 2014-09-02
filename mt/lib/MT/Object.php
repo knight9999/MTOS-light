@@ -2,6 +2,8 @@
 
 namespace MT;
 
+require_once __DIR__ . "/../MT.php";
+require_once __DIR__ . "/Base/Util.php";
 require_once __DIR__ . "/Base/Component.php";
 
 class Object extends Base\Component {
@@ -11,11 +13,21 @@ class Object extends Base\Component {
 	public static function install_properties($props) {
 		$class = get_called_class();
 		// TODO plugins_installedチェック＆処理
+		$meta = array();
+		$summary = array();
 		
 		$super_props = null;
-		if ( get_parent_class($class) != "MT\\Base\\Component" ) {
+		if ( isset( parent::$properties ) ) { 
 			$super_props = parent::$properties;
 		}
+		
+		foreach ( array("meta","summary") as $which) {
+			if ($super_props && $super_props[$which]) {
+				$props[$which] = 1 ;
+			}
+		}
+		
+		
 		if ($super_props) {
 			foreach ( array("primary_key","class_column","datasource","driver","audit") as $key) {
 				if ($super_props[$key] && !$props[$key]) {
@@ -78,7 +90,95 @@ class Object extends Base\Component {
  			$type_id = $props->{datasource};
  		}
  		
-// 		var_dump( $props ); # debug
+ 		if ( isset( $props["summary"] ) ) {
+ 			$type_summaries = \MT::registry( 'summaries' , $type_id );
+			$summary = array(); 			
+ 			foreach (array_keys( $type_summaries ) as $_) {
+ 				$summary[$_] = preg_match( "/(string|integer)/" , $type_summaries[$_]["type"] , $matches) ? 
+ 					$matches[1] . " indexed meta" : $type_summaries[$_]["type"] . " meta";
+ 			}
+ 		}
+ 		$props["get_driver"] = isset( $props["get_driver"]) ? 
+ 			$props["get_driver"] : function() { return \MT\ObjectDriverFactory::instance(); };
+ 		
+		if ( method_exists( get_parent_class( get_called_class() ) , "install_properties") ) {
+			parent::install_properties( $props );
+		}
+	
+		# check for any supplemental columns from other components
+		$more_props = \MT::registry( 'object_types' , $type_id );
+		if ( isset( $more_props ) && \MT\Base\Util::is_array( $more_props ) ) {
+			$cols = array();
+			foreach ($more_props as $prop) {
+				if ( ! \MT\Base\Util::is_hash($prop) ) {
+					continue;
+				}
+				\MT::__merge_hash( $cols , $prop , 1 );				
+			}
+			$classes = array();
+			foreach ($more_props as $_) {
+				if (is_string($_)) {
+					array_push( $classes , $_ );
+				}
+			}
+			foreach ($classes as $isa_class) { 
+				# $classが、$isa_classを継承したクラスの場合はスキップ。そうでない場合は、読み込む。
+				# そうでない場合は、"$class::ISA"に、$isa_classを付け足す。
+				# PHPの場合は、親子関係はクラスファイルに記載されているので、この処理はしないでよい？
+				# requireも、autoloadの方で対応するので、しない。
+			} 
+			if ($cols) {
+				if ($cols["plugin"]) {
+					unset( $cols["plugin"] );
+				}
+				foreach( array_keys( $cols ) as $name ) {
+					if (isset( $props["column_defs"][$name] )) {
+						continue;
+					}
+					if ( preg_match("/\\bmeta\\b/", $cols[$name]) ) {
+						$meta[$name] = $cols[$name];
+						continue;
+					}
+					$class->install_column( $name, $cols[$name] );
+					if ( preg_match("/\\bindexed\\b/",$cols[$name]) ) {
+						$props["indexes"][$name] = 1;
+					} 
+					if ( preg_match("/\\bdefault (?:'([^']+?)'|(\\d+))\\b/",$matches) ) {
+						$props["defaults"][$name] = isset( $matches[1] ) ? $matches[1] : $matches[2];
+					}
+					
+				}
+			}
+		}
+	
+		$pk = isset( $props["primary_key"] ) ? $props["primary_key"] : "";
+		usort( $props["columns"] , function($a,$b) use ($pk) { return $a == $pk ? -1 : ( $b == $pk ? 1 : - ( $a < $b ) ); } );
+
+		# Child classes are declared as an array;
+		# convert them to a hashref for easier lookup.
+		if ( \MT\Base\Util::is_array( $props["child_classes"] ) ) {
+			$classes = $props["child_classes"];
+			$props["child_classes"] = array();
+			foreach ($classes as $c) {
+				$props["child_classes"][$c] = array();
+			}
+		}
+		# We're declared as a child of some other class; associate ourselves
+		# with that package (the invoking class should have already use'd it.)
+		if ( isset( $props["child_of"]) ) {
+			$parent_classes = $props["child_of"];
+			if (! is_array( $parent_classes )) {
+				$parent_classes = array( $parent_classes );
+			}
+			foreach ($parent_classes as $pc) {
+				$pp = $pc->properties;
+				$pp["child_classes"] = isset( $pp["child_classes"] ) ? $pp["child_classes"] : array();
+				$pp["child_classes"][$class] = array();
+			}
+		}
+    	# Special handling for 'Taggable' objects; automatic saving
+    	# and removal of tags.
+		
 	}
 	
 	public static function __parse_defs($defs) {
