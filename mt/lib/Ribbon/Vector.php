@@ -12,7 +12,7 @@ class Vector extends Component implements \IteratorAggregate,\ArrayAccess,\Count
 	}
 	
 	public function getIterator() {
-		return new ArrayIterator($this->_d); // TODO
+		return new \ArrayIterator($this->_d); // TODO
 	}
 	
 	public function count() {

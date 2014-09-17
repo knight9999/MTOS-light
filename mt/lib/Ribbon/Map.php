@@ -12,7 +12,7 @@ class Map extends Component implements \IteratorAggregate,\ArrayAccess,\Countabl
 	}
 	
 	public function getIterator() {
-		return new ArrayIterator($this->_d); // TODO
+		return new \ArrayIterator($this->_d); // TODO
 	}
 	
 	public function count() {

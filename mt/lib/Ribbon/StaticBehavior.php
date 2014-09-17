@@ -2,7 +2,7 @@
 
 namespace Ribbon;
 
-class Behavior {
+class StaticBehavior {
 	
 	
 	
