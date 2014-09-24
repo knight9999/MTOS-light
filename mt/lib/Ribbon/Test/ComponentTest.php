@@ -1,7 +1,11 @@
 <?php 
 
-require_once __DIR__ . "/../StaticBehavior.php";
-require_once __DIR__ . "/../Component.php";
+// require_once __DIR__ . "/../StaticBehavior.php";
+// require_once __DIR__ . "/../Component.php";
+
+require_once __DIR__ . "/../ClassLoader.php";
+
+spl_autoload_register( array('\Ribbon\ClassLoader','loadClass'));
 
 class ChildComponent extends \Ribbon\Component {
 	

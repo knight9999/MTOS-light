@@ -2,8 +2,8 @@
 
 namespace Ribbon;
 
-require_once __DIR__ . "/Map.php";
-require_once __DIR__ . "/Vector.php";
+// require_once __DIR__ . "/Map.php";
+// require_once __DIR__ . "/Vector.php";
 
 class Component {
 	public static $_m = null;
