@@ -1,6 +1,9 @@
 <?php 
 
 # require_once 'PHPUnit/Framework.php';
+use \Ribbon\Map;
+
+require_once __DIR__ . "/../../Ribbon/Map.php";
 require_once __DIR__ . '/../Object.php';
 
 class ObjectTest extends PHPUnit_Framework_testCase {
@@ -11,7 +14,7 @@ class ObjectTest extends PHPUnit_Framework_testCase {
 	
 	public function testBlog() {
 		\MT\Object::install_properties(
-		array(   "column_defs" => array(
+		new Map(array(   "column_defs" => new Map(array(
 			'id'                        => 'integer not null auto_increment',
 			'parent_id'                 => 'integer',
 			'theme_id'                  => 'string(255)',
@@ -108,15 +111,15 @@ class ObjectTest extends PHPUnit_Framework_testCase {
 			'category_order'           => 'text meta',
 			'folder_order'             => 'text meta',
 		
-		),
+		)),
 		"meta"    => 1,
 		"audit"   => 1,
-		"indexes" => array(
+		"indexes" => new Map(array(
 			"name"      => 1,
 			"parent_id" => 1,
-		),
-		"defaults"      => array( 'custom_dynamic_templates' => 'none', ),
-		"child_classes" => array(
+		)),
+		"defaults"      => new Map(array( 'custom_dynamic_templates' => 'none', )),
+		"child_classes" => new Map(array(
 		'MT::Entry',        'MT::Page',
 		'MT::Template',     'MT::Asset',
 		'MT::Category',     'MT::Folder',
@@ -125,12 +128,12 @@ class ObjectTest extends PHPUnit_Framework_testCase {
 		'MT::Comment',      'MT::TBPing',
 		'MT::Trackback',    'MT::TemplateMap',
 		'MT::Touch',
-		),
+		)),
 		"datasource"  => 'blog',
 		"primary_key" => 'id',
 		"class_type"  => 'blog',
 		)
-		);
+		));
 		
 	}
 }

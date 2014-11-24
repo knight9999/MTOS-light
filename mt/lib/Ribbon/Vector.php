@@ -2,8 +2,10 @@
 
 namespace Ribbon;
 
+require_once __DIR__ . "/Component.php";
+
 class Vector extends Component implements \IteratorAggregate,\ArrayAccess,\Countable {
-	private $_d = array();
+	public $_d = array();
 
 	public function __construct($data=null) {
 		if ($data!=null) {

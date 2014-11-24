@@ -2,6 +2,13 @@
 
 namespace MT;
 
+use \Ribbon\Map;
+use \Ribbon\Vector;
+
+require_once __DIR__ . "/../Ribbon/Map.php";
+require_once __DIR__ . "/../Ribbon/Vector.php";
+
+
 require_once __DIR__ . "/../MT.php";
 require_once __DIR__ . "/Base/Util.php";
 require_once __DIR__ . "/Base/Component.php";
@@ -13,8 +20,8 @@ class Object extends Base\Component {
 	public static function install_properties($props) {
 		$class = get_called_class();
 		// TODO plugins_installedチェック＆処理
-		$meta = array();
-		$summary = array();
+		$meta = new Map();
+		$summary = new Map();
 		
 		$super_props = null;
 		if ( isset( parent::$properties ) ) { 
@@ -27,17 +34,26 @@ class Object extends Base\Component {
 			}
 		}
 		
+		if ($props['meta']) {
+			# yank out any meta columns before we start working on column_defs
+			foreach ( $props["column_defs"] as $key ) {
+				if (preg_match("/\\bmeta\\b/",$props["column_defs"][$key])) {
+					$meta[$key] = $props["column_defs"]->remove($key);
+				}
+			}
+		}
 		
 		if ($super_props) {
+      # subclass; merge hash
 			foreach ( array("primary_key","class_column","datasource","driver","audit") as $key) {
-				if ($super_props[$key] && !$props[$key]) {
+				if ($super_props->contains($key) && !$props->contains($key) ) {
 					$props[$key] = $super_props[$key];
 				}
 			}
 			foreach ( array("column_defs","defaults","indexes") as $p) {
-				if ($super_props[$p]) {
+				if ($super_props->contains($p)) {
 					foreach( array_keys( $super_props[$p] ) as $k ) {
-						if (! $props[$p][$k] ) {
+						if (! $props[$p]->contains($k) ) {
 							$props[$p][$k] = $super_props[$p][$k];
 						}
 					}
@@ -52,32 +68,51 @@ class Object extends Base\Component {
 			}
 		}		
 		# TODO Legacy MT::Object proc
-		$props["columns"] = array_keys( $props["column_defs"] );
+		$props["columns"] = new Vector( $props["column_defs"]->getKeys() );
 		
 		if ($props["audit"]) {
-			if ( ! isset( $props["column_defs"]["created_on"]) ) {
+			if ( ! $props["column_defs"]->contains("created_on") ) {
 				$props["column_defs"]["created_on"] = "datetime";
 				$props["column_defs"]["created_by"] = "integer";
 				$props["column_defs"]["modified_on"] = "datetime";
 				$props["column_defs"]["modified_by"] = "integer";
-				array_push( $props["columns"] , "created_on" , "created_by" , "modified_on" , "modified_by" );
+				$props["columns"]->add("created_on");
+				$props["columns"]->add("created_by");
+				$props["columns"]->add("modified_on");
+				$props["columns"]->add("modified_by");
 			}
 		}
 		
 		# Classed object types
-		if ( isset( $props["class_type"] ) ) {
-			$props["class_column"] = isset( $props["class_column"] ) ? $props["class_column"] : "class";
+		if ( $props->contains("class_type") ) {
+			$props["class_column"] = $props->contains("class_column")  ? $props["class_column"] : "class";
 		}
 		if ( $col = $props["class_column"] ) {
-			if ( ! isset( $props["column_defs"][$col] ) ) {
+			if ( ! $props["column_defs"][$col] ) {
 				$props["column_defs"][$col] = "string(255)";
-				array_push( $props["columns"] , $col );
+				$props["columns"]->add( $col );
 				$props["indexes"][$col] = 1;
 			}
-			# TODO add_triggers
+			if ( !$super_props || !$super_props["class_column"]) {
+			  $class::add_trigger(
+			  	"pre_search" , "_pre_search_scope_terms_to_class" 
+			  );
+			  $class::add_trigger(
+			  	"post_load" , "_post_load_rebless_object" 
+			  );
+			  $class::add_trigger(
+			  	"post_inflate" , "_post_load_rebless_object" 
+			  );
+			}
 			if ( $type = $props["class_type"] ) {
 				$props["defaults"][$col] = $type;
+				if (! $props->contains("__class_to_type")) {
+					$props["__class_to_type"] = new Map();
+				}
 				$props["__class_to_type"][$class] = $type;
+				if (! $props->contains("__type_to_class")) {
+					$props["__type_to_class"] = new Map();
+				}				
 				$props["__type_to_class"][$type] = $class;
 			}
 		}
@@ -90,15 +125,15 @@ class Object extends Base\Component {
  			$type_id = $props->{datasource};
  		}
  		
- 		if ( isset( $props["summary"] ) ) {
+ 		if ( $props->contains("summary") ) {
  			$type_summaries = \MT::registry( 'summaries' , $type_id );
-			$summary = array(); 			
- 			foreach (array_keys( $type_summaries ) as $_) {
+			$summary = new Map(); 			
+ 			foreach ( $type_summaries->getKeys() as $_) {
  				$summary[$_] = preg_match( "/(string|integer)/" , $type_summaries[$_]["type"] , $matches) ? 
  					$matches[1] . " indexed meta" : $type_summaries[$_]["type"] . " meta";
  			}
  		}
- 		$props["get_driver"] = isset( $props["get_driver"]) ? 
+ 		$props["get_driver"] = $props->contains("get_driver") ? 
  			$props["get_driver"] : function() { return \MT\ObjectDriverFactory::instance(); };
  		
 		if ( method_exists( get_parent_class( get_called_class() ) , "install_properties") ) {
@@ -107,32 +142,33 @@ class Object extends Base\Component {
 	
 		# check for any supplemental columns from other components
 		$more_props = \MT::registry( 'object_types' , $type_id );
-		if ( isset( $more_props ) && \MT\Base\Util::is_array( $more_props ) ) {
-			$cols = array();
+		if ( isset( $more_props ) && ($more_props instanceof Vector ) ) {
+			$cols = new Map();
 			foreach ($more_props as $prop) {
-				if ( ! \MT\Base\Util::is_hash($prop) ) {
+				if ( ! ($prop instanceof Map) ) {
 					continue;
 				}
 				\MT::__merge_hash( $cols , $prop , 1 );				
 			}
-			$classes = array();
+			$classes = new Vector();
 			foreach ($more_props as $_) {
 				if (is_string($_)) {
 					array_push( $classes , $_ );
 				}
 			}
 			foreach ($classes as $isa_class) { 
-				# $classが、$isa_classを継承したクラスの場合はスキップ。そうでない場合は、読み込む。
-				# そうでない場合は、"$class::ISA"に、$isa_classを付け足す。
-				# PHPの場合は、親子関係はクラスファイルに記載されているので、この処理はしないでよい？
-				# requireも、autoloadの方で対応するので、しない。
+				if ($class::getBehaviors()->contains("isa_class")) {
+					continue;
+				}
+				$class::addBehavior(  $isa_class , $isa_class );
+				#TODO AUTOLOAD
 			} 
 			if ($cols) {
-				if ($cols["plugin"]) {
-					unset( $cols["plugin"] );
+				if ($cols->contains("plugin")) {
+					$cols->remove("plugin");
 				}
-				foreach( array_keys( $cols ) as $name ) {
-					if (isset( $props["column_defs"][$name] )) {
+				foreach( $cols->getKeys() as $name ) {
+					if ( $props["column_defs"]->contains($name) ) {
 						continue;
 					}
 					if ( preg_match("/\\bmeta\\b/", $cols[$name]) ) {
@@ -151,29 +187,29 @@ class Object extends Base\Component {
 			}
 		}
 	
-		$pk = isset( $props["primary_key"] ) ? $props["primary_key"] : "";
-		usort( $props["columns"] , function($a,$b) use ($pk) { return $a == $pk ? -1 : ( $b == $pk ? 1 : - ( $a < $b ) ); } );
+		$pk = $props->contains("primary_key") ? $props["primary_key"] : "";
+		usort( $props["columns"]->_d , function($a,$b) use ($pk) { return $a == $pk ? -1 : ( $b == $pk ? 1 : - ( $a < $b ) ); } );
 
 		# Child classes are declared as an array;
 		# convert them to a hashref for easier lookup.
-		if ( \MT\Base\Util::is_array( $props["child_classes"] ) ) {
+		if ( $props["child_classes"] instanceof Vector ) {
 			$classes = $props["child_classes"];
-			$props["child_classes"] = array();
+			$props["child_classes"] = new Vector();
 			foreach ($classes as $c) {
-				$props["child_classes"][$c] = array();
+				$props["child_classes"][$c] = new Vector();
 			}
 		}
 		# We're declared as a child of some other class; associate ourselves
 		# with that package (the invoking class should have already use'd it.)
-		if ( isset( $props["child_of"]) ) {
+		if ( $props->contains("child_of") ) {
 			$parent_classes = $props["child_of"];
-			if (! is_array( $parent_classes )) {
-				$parent_classes = array( $parent_classes );
+			if (! ($parent_classes instanceof Vector || $parent_classes instanceof Map) ) {
+				$parent_classes = new Vector( array( $parent_classes ) );
 			}
 			foreach ($parent_classes as $pc) {
-				$pp = $pc->properties;
-				$pp["child_classes"] = isset( $pp["child_classes"] ) ? $pp["child_classes"] : array();
-				$pp["child_classes"][$class] = array();
+				$pp = $pc::$properties;
+				$pp["child_classes"] = $pp->contains("child_classes") ? $pp["child_classes"] : new Vector();
+				$pp["child_classes"][$class] = new Vector();
 			}
 		}
     	# Special handling for 'Taggable' objects; automatic saving
