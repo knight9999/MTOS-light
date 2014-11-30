@@ -1,6 +1,7 @@
 <?php 
 
 require_once __DIR__ . "/MT/Base/Component.php";
+require_once __DIR__ . "/MT/ConfigMgr.php";
 
 class MT extends \MT\Base\Component {
 	
@@ -31,6 +32,10 @@ class MT extends \MT\Base\Component {
 				$h1[$k] = $h2[$k];
 			}
 		}
+	}
+	
+	public static function config() {
+		return new MT\ConfigMgr();
 	}
 }
 

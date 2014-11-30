@@ -157,10 +157,10 @@ class Object extends Base\Component {
 				}
 			}
 			foreach ($classes as $isa_class) { 
-				if ($class::getBehaviors()->contains("isa_class")) {
+				if ($class::getBehaviors()->contains($isa_class)) {
 					continue;
 				}
-				$class::addBehavior(  $isa_class , $isa_class );
+				$class::addBehavior(  $isa_class );
 				#TODO AUTOLOAD
 			} 
 			if ($cols) {
@@ -212,9 +212,69 @@ class Object extends Base\Component {
 				$pp["child_classes"][$class] = new Vector();
 			}
 		}
+		  # line 235 @ original
     	# Special handling for 'Taggable' objects; automatic saving
     	# and removal of tags.
 		
+		// TODO
+		// Taggableクラスを継承している場合は、それがinstall_propertiesが出来る場合は、Taggableクラスに
+		// 現在のクラスをinstall_propertiesする。
+		// PHPでは、単一継承なので、このままの実装は出来ないので、とりあえず割愛。StaticBehaviorで対応できる場合は、
+		// それで実装する(クラスの継承関係を、整理して、考える必要あり）
+		
+		# line 250 @ original
+		# install legacy date translation
+		// 割愛
+		
+		# line 264 @ original
+    # Treat blank string with number field
+    $class::add_trigger( "pre_save" , array( __NAMESPACE__ .  get_called_class() ) , "_translate_numeric_fields" );
+		
+    # inherit parent's metadata setup
+    if ( $props->contains("meta") ) {
+    	# if ($super_props && $super_props->{meta_installed}) {
+    	$class::install_meta(
+  			$meta->isEmpty() ? new Map(array( "columns" => new Vector() )) : new Map(array( "column_defs" => $meta) )  	
+	    	, "meta"
+    	);
+    	$class::add_trigger( "post_remove" , array( __NAMESPACE__ , get_called_class() ) , "remove_meta" );
+    }
+    if ( $props->contains("summary")) {
+    	$class::install_meta(
+    		$summary->isEmpty() ? new Map(array( "columns" => new Vector() )) : new Map(array( "column_defs"=>$summary ))
+    	);
+    }
+    
+    # line 287 @ original
+    # Because of the inheritance of MT::Entry by MT::Page, we need to do this here
+    
+    if ( $class::hasBehavior('MT\Revisable') ) {
+    	$class::init_revisioning();
+    }
+    
+    $enc = isset( \MT::config()->PublishCharset ) ? \MT::config()->PublishCharset : 'UTF-8';
+    
+    # install these callbacks that is guaranteed to be called
+    # at the very last in the callback list to encode everything.
+    
+    # TODO
+    
+    return $props;
+    
+    
+	}
+	
+	public static function install_meta($params,$which = null) {
+		$class = get_called_class();
+		if (! isset( $which) ) {
+			$which = 'meta';
+		}
+//		if ( ( $class != 'MT\Config' ) && ( ! MT::$plugins_installed) ) { // Dinamic Variables;
+			// TODO
+			// push @PRE_INIT_META, [ $class, $params, $which ];
+//			return;
+//		}
+		// TODO
 	}
 	
 	public static function __parse_defs($defs) {

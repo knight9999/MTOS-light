@@ -29,6 +29,23 @@ class Behavior3 extends \Ribbon\StaticBehavior {
 	}
 }
 
+class TriggerSample extends \Ribbon\Component {
+	public function setTrigger() {
+		$this->add_trigger( "hoge" , array(__NAMESPACE__."\TriggerSample" , "hoge") );
+		$this->add_trigger( "hoge2" , array(__NAMESPACE__. get_class($this) , "hoge2") );
+		
+	}
+	
+	public function hoge($title,$num) {
+		return $title . " is hoge " . $num;
+	}
+
+	public function hoge2($title,$num) {
+		return $title . " is hoge2 " . $num;
+	}
+	
+}
+
 
 class ComponentTest extends PHPUnit_Framework_testCase {
 	
@@ -50,10 +67,30 @@ class ComponentTest extends PHPUnit_Framework_testCase {
 		// var_dump( $data );
 		$this->assertEquals( count($data) , 1 );
 		
-		$this->assertTrue(true);
-		
 		$message = ChildComponent::message();
 		$this->assertEquals( $message , "Message!" );
+	
+		
+		$flag1 = ChildComponent::hasBehavior( "Behavior3");
+		$this->assertTrue( $flag1 );
+		
+		$flag2 = ChildComponent::hasBehavior( "Behavior2");
+		$this->assertFalse( $flag2 );		
+	}
+	
+	public function testTrigger() {
+		$sample = new TriggerSample();
+		$sample->setTrigger();
+		$retval = $sample->call_trigger( "hoge" , array("foo",4));
+		$this->assertEquals( "foo is hoge 4",$retval);
+		
+		$str = "TriggerSample";
+		$retval = $str::call_trigger( "hoge" , array("munyu",5));
+		$this->assertEquals( "munyu is hoge 5",$retval);
+
+		$str = "TriggerSample";
+		$retval = $str::call_trigger( "hoge2" , array("munyu",5));
+		$this->assertEquals( "munyu is hoge2 5",$retval);
 	}
 }
 

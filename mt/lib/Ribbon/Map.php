@@ -70,6 +70,10 @@ class Map extends Component implements \IteratorAggregate,\ArrayAccess,\Countabl
 		return isset($this->_d[$key]) || array_key_exists($key,$this->_d);
 	}
 	
+	public function isEmpty() {
+		return empty( $this->_d );
+	}
+	
 	public function toArray() {
 		return $this->_d;
 	}
