@@ -9,7 +9,7 @@ class Component {
 	public static $_m = null;
 
 	public static function staticInit() {
-		if ( ! isset(static::$_m) ) {
+		if ( ! isset(static::$_m) && class_exists("Ribbon\Map") ) {
 			static::$_m = new Map();
 		}
 	}
@@ -64,8 +64,6 @@ class Component {
 	public static function call_trigger( $key ) {
 	
 	}
-	
-	
 	
 }
 

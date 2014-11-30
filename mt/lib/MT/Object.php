@@ -5,8 +5,8 @@ namespace MT;
 use \Ribbon\Map;
 use \Ribbon\Vector;
 
-require_once __DIR__ . "/../Ribbon/Map.php";
-require_once __DIR__ . "/../Ribbon/Vector.php";
+// require_once __DIR__ . "/../Ribbon/Map.php";
+// require_once __DIR__ . "/../Ribbon/Vector.php";
 
 
 require_once __DIR__ . "/../MT.php";
@@ -264,6 +264,5 @@ class Object extends Base\Component {
 	}
 	
 }
-
 
 ?>

@@ -150,4 +150,6 @@ class Map extends Component implements \IteratorAggregate,\ArrayAccess,\Countabl
 	}
 }
 
+Component::staticInit();
+
 ?>

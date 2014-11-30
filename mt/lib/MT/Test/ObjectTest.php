@@ -3,7 +3,13 @@
 # require_once 'PHPUnit/Framework.php';
 use \Ribbon\Map;
 
-require_once __DIR__ . "/../../Ribbon/Map.php";
+require_once __DIR__ . "/../../Ribbon/ClassLoader.php";
+spl_autoload_register( array('\Ribbon\ClassLoader','loadClass'));
+
+//require_once __DIR__ . '/../../Ribbon/Component.php';
+//require_once __DIR__ . "/../../Ribbon/Map.php";
+//require_once __DIR__ . "/../../Ribbon/Vector.php";
+
 require_once __DIR__ . '/../Object.php';
 
 class ObjectTest extends PHPUnit_Framework_testCase {
@@ -136,6 +142,7 @@ class ObjectTest extends PHPUnit_Framework_testCase {
 		));
 		
 	}
+
 }
 
 
