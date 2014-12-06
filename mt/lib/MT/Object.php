@@ -228,7 +228,7 @@ class Object extends Base\Component {
 		
 		# line 264 @ original
     # Treat blank string with number field
-    $class::add_trigger( "pre_save" , array( __NAMESPACE__ .  get_called_class() ) , "_translate_numeric_fields" );
+    $class::add_trigger( "pre_save" , array( __NAMESPACE__ . "\\" . get_called_class() , "_translate_numeric_fields" ) );
 		
     # inherit parent's metadata setup
     if ( $props->contains("meta") ) {
@@ -237,7 +237,7 @@ class Object extends Base\Component {
   			$meta->isEmpty() ? new Map(array( "columns" => new Vector() )) : new Map(array( "column_defs" => $meta) )  	
 	    	, "meta"
     	);
-    	$class::add_trigger( "post_remove" , array( __NAMESPACE__ , get_called_class() ) , "remove_meta" );
+    	$class::add_trigger( "post_remove" , array( __NAMESPACE__ . "\\" . get_called_class() ,  "remove_meta" ) );
     }
     if ( $props->contains("summary")) {
     	$class::install_meta(
@@ -254,10 +254,23 @@ class Object extends Base\Component {
     
     $enc = isset( \MT::config()->PublishCharset ) ? \MT::config()->PublishCharset : 'UTF-8';
     
+    # original line 294
     # install these callbacks that is guaranteed to be called
     # at the very last in the callback list to encode everything.
     
-    # TODO
+    $class::add_trigger(
+    	'__core_final_pre_save', function( $original ) {
+    		$dbd = $this->driver->dbd;
+    		if (! $dbd->need_encode) {
+    			return;
+    		}
+    		$data = $obj->get_values;
+    		foreach ( $data as $key => $value ) {
+    			// TODO エンコード処理
+    		}
+    		$this->set_values( $data , new Map(array( "no_changed_flag" => 1)) );
+	    }
+    );
     
     return $props;
     
