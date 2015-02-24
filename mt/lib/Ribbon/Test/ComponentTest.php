@@ -36,11 +36,11 @@ class TriggerSample extends \Ribbon\Component {
 		
 	}
 	
-	public function hoge($title,$num) {
+	public static function hoge($title,$num) {
 		return $title . " is hoge " . $num;
 	}
 
-	public function hoge2($title,$num) {
+	public static function hoge2($title,$num) {
 		return $title . " is hoge2 " . $num;
 	}
 	
