@@ -5,6 +5,8 @@ require_once __DIR__ . "/MT/ConfigMgr.php";
 
 class MT extends \MT\Base\Component {
 	
+	public static $plugin_installed = null;
+	
 	public static function registry( $name , $type_id ) {
 		# TODO
 		return array();

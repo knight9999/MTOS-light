@@ -5,27 +5,63 @@ namespace MT;
 use \Ribbon\Map;
 use \Ribbon\Vector;
 
-// require_once __DIR__ . "/../Ribbon/Map.php";
-// require_once __DIR__ . "/../Ribbon/Vector.php";
-
-
 require_once __DIR__ . "/../MT.php";
 require_once __DIR__ . "/Base/Util.php";
 require_once __DIR__ . "/Base/Component.php";
 
 class Object extends Base\Component {
 	
-	private static $pre_init_props = null; // TODO
-	public static $properties = null;
+	private static $pre_init_props = null;
+	private static $pre_init_meta = null;
+	
+	public static function install_pre_init_properties() {
+    # Just in case; to prevent any weird recursion
+		$plugins_installed = \MT::$plugins_installed;
+		\MT::$plugins_installed = 1;
+		
+		if (isset(self::$pre_init_props)) {
+			foreach ( self::$pre_init_props as $def ) {
+				$class = $def[0];
+				$props = $def[1];
+				$class::install_properties($props);
+			}
+		  $pre_init_props = null;
+		}
+		
+		if (isset(self::$pre_init_meta)) {
+			foreach ( self::$pre_init_meta as $def ) {
+				$class = $def[0];
+				$meta = $def[1];
+				$which = $def[2];
+				$class::install_meta( $meta , $which );
+			}
+			self::$pre_init_meta = null;
+		}
+		\MT::$plugins_installed = $plugins_installed;
+	}
+	
 	public static function install_properties($props) {
 		$class = get_called_class();
-		// TODO plugins_installedチェック＆処理
+		
+		if ( ( $class != 'MT\Config') && ( ! \MT::$plugins_installed ) ) {
+			if (! isset( self::$pre_init_props) ) {
+				self::$pre_init_props = new Vector();
+			}
+			self::$pre_init_props.add( new Vector(array( $class , $props ) ) );
+			return;
+		}
+		
 		$meta = new Map();
 		$summary = new Map();
 		
 		$super_props = null;
-		if ( isset( parent::$properties ) ) { 
-			$super_props = parent::$properties;
+		
+		$parents = class_parents( get_class_class() );
+		if (count($parents)>0) {
+			$parent = array_pop( $parents );
+			if (is_callable( array( $parent , "properties" ) )) {
+				$super_props = parent::properties();
+			}
 		}
 		
 		foreach ( array("meta","summary") as $which) {
@@ -95,13 +131,13 @@ class Object extends Base\Component {
 			}
 			if ( !$super_props || !$super_props["class_column"]) {
 			  $class::add_trigger(
-			  	"pre_search" , "_pre_search_scope_terms_to_class" 
+			  	"pre_search" , array(get_called_class(),"_pre_search_scope_terms_to_class" )
 			  );
 			  $class::add_trigger(
-			  	"post_load" , "_post_load_rebless_object" 
+			  	"post_load" , array(get_called_class(),"_post_load_rebless_object" )
 			  );
 			  $class::add_trigger(
-			  	"post_inflate" , "_post_load_rebless_object" 
+			  	"post_inflate" , array(get_called_class(),"_post_load_rebless_object" )
 			  );
 			}
 			if ( $type = $props["class_type"] ) {
@@ -219,16 +255,42 @@ class Object extends Base\Component {
 		// TODO
 		// Taggableクラスを継承している場合は、それがinstall_propertiesが出来る場合は、Taggableクラスに
 		// 現在のクラスをinstall_propertiesする。
-		// PHPでは、単一継承なので、このままの実装は出来ないので、とりあえず割愛。StaticBehaviorで対応できる場合は、
-		// それで実装する(クラスの継承関係を、整理して、考える必要あり）
-		
+		// PHPでは、単一継承なので、このままの実装は出来ないので、traitを利用して実装。
+    $traits = new Map();
+    foreach( class_uses($class) as $k => $v) {
+    	$traits[$k] = true;
+    }
+    foreach ( class_parents($class) as $k => $v) {
+    	foreach( class_uses($k) as $k1 => $v1) {
+    		$traits[$k1] = true;
+    	}
+    }
+		foreach ( $traits as $k => $v) {
+			if (preg_match('/able$/',$k)) {
+				continue;
+			}
+			if ($k == $class) {
+				continue;
+			}
+			if (method_exists($class,"install_properties")) {
+				$class::install_properties($class);
+			}
+		}
 		# line 250 @ original
 		# install legacy date translation
-		// 割愛
+    $arrs = $class::columns_of_type( 'datetime' , 'timestamp' );
+    if (count( $arrs )>0) {
+    	if ($props["audit"]) {
+    		$class::add_trigger( "pre_save" , array(get_called_class(),"_assign_audited_fields" ) );
+    		$class::add_trigger( "post_save" , array(get_classed_class(),"_translate_audited_fields") );
+    	}
+    	$class::add_trigger( "pre_save" , _get_date_translator( "_ts2db" , 0 ) );
+    	$class::add_trigger( "post_load" , _get_date_translator( "_db2ts" , 0 ) );
+    }
 		
 		# line 264 @ original
     # Treat blank string with number field
-    $class::add_trigger( "pre_save" , array( __NAMESPACE__ . "\\" . get_called_class() , "_translate_numeric_fields" ) );
+    $class::add_trigger( "pre_save" , array( get_called_class() , "_translate_numeric_fields" ) );
 		
     # inherit parent's metadata setup
     if ( $props->contains("meta") ) {
@@ -237,7 +299,7 @@ class Object extends Base\Component {
   			$meta->isEmpty() ? new Map(array( "columns" => new Vector() )) : new Map(array( "column_defs" => $meta) )  	
 	    	, "meta"
     	);
-    	$class::add_trigger( "post_remove" , array( __NAMESPACE__ . "\\" . get_called_class() ,  "remove_meta" ) );
+    	$class::add_trigger( "post_remove" , array( get_called_class() ,  "remove_meta" ) );
     }
     if ( $props->contains("summary")) {
     	$class::install_meta(
@@ -282,6 +344,9 @@ class Object extends Base\Component {
 		if (! isset( $which) ) {
 			$which = 'meta';
 		}
+		$installed = $which . "_installed";
+		$meta_class = "MT\\" . ucfirst($which);
+		
 //		if ( ( $class != 'MT\Config' ) && ( ! MT::$plugins_installed) ) { // Dinamic Variables;
 			// TODO
 			// push @PRE_INIT_META, [ $class, $params, $which ];

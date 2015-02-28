@@ -32,7 +32,8 @@ class Behavior3 extends \Ribbon\StaticBehavior {
 class TriggerSample extends \Ribbon\Component {
 	public function setTrigger() {
 		$this->add_trigger( "hoge" , array(__NAMESPACE__."\TriggerSample" , "hoge") );
-		$this->add_trigger( "hoge2" , array(__NAMESPACE__. get_class($this) , "hoge2") );
+		$this->add_trigger( "hoge2" , array( get_called_class() , "hoge2") );
+		$this->add_trigger( "hoge3" , function( $name ) {  return "My name is " . $name . "\n"; } );
 		
 	}
 	
@@ -91,6 +92,10 @@ class ComponentTest extends PHPUnit_Framework_testCase {
 		$str = "TriggerSample";
 		$retval = $str::call_trigger( "hoge2" , array("munyu",5));
 		$this->assertEquals( "munyu is hoge2 5",$retval);
+		
+		$retval = $str::call_trigger( "hoge3" , array("hoge3" ) );
+		$this->assertEquals( "My name is hoge3\n",$retval);
+		
 	}
 }
 
